@@ -10,8 +10,10 @@ float objective_function(Graph g);
 
 float time_spent_function(Graph g);
 
+void print_answer(Graph g, Answer a);
+
 Answer greedy(Graph g, int T_MAX);
 
-Answer adaptative_greedy(Graph g, int T_MAX);
+Answer adaptive_greedy(Graph g, int T_MAX);
 
 Answer random_multistart(Graph g, int T_MAX, int stopping_criterion);
