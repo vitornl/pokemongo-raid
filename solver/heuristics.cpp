@@ -1,6 +1,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <time.h>
+#include <vector>
 #include "heuristics.h"
 #include <iostream>
 #include <fstream>
@@ -28,7 +29,7 @@ float objective_function(Graph g) {
     int vertices_sum = 0;
     for(int i = 0; i < g.n_vertices; i++)
         vertices_sum += g.v_vertices[i];
-
+    
     return (2*vertices_sum - weights_sum);
 }
 
@@ -65,19 +66,19 @@ int _greedy_choice(Graph g, int vertex) {
     }
 
     if(min == -1) {
-        cout << "DEU MERDA\n";
+        cout << "DEU RUIM\n";
         exit(1);
     }
 
     return idx;
 }
 
-Answer greedy(Graph g, int T_MAX) {
+Answer greedy(Graph g, int T_MAX, int v0) {
 
     Answer a;
 
     // int v0 = 17;
-    int v0 = (rand() % g.n_vertices);
+    v0 = (v0 != -1) ? v0 : (rand() % g.n_vertices);
     
     g.v_vertices[v0] = 1;
     a.path.push_back(v0);
@@ -127,19 +128,19 @@ int _adaptive_greedy_choice(Graph g, int vertex) {
     }
 
     if(idx == -1) {
-        cout << "DEU MERDA\n";
+        cout << "DEU RUIM\n";
         exit(1);
     }
 
     return idx;
 }
 
-Answer adaptive_greedy(Graph g, int T_MAX) {
+Answer adaptive_greedy(Graph g, int T_MAX, int v0) {
 
     Answer a;
 
     // int v0 = 17;
-    int v0 = (rand() % g.n_vertices);
+    v0 = (v0 != -1) ? v0 : (rand() % g.n_vertices);
     
     g.v_vertices[v0] = 1;
     a.path.push_back(v0);
@@ -164,11 +165,11 @@ Answer adaptive_greedy(Graph g, int T_MAX) {
 }
 
 // RANDOM MULTISTART
-Answer _random_solution(Graph g, int T_MAX) {
+Answer _random_solution(Graph g, int T_MAX, int v0) {
     Answer a;
 
-    int v0 = (rand() % g.n_vertices);
-
+    v0 = (v0 != -1) ? v0 : (rand() % g.n_vertices);
+    
     g.v_vertices[v0] = 1;
     a.path.push_back(v0);
     a.time_spent = time_spent_function(g);
@@ -189,24 +190,24 @@ Answer _random_solution(Graph g, int T_MAX) {
         v0 = next_v;
     }
     a.objective_ponctuation = objective_function(g);
-
+    
     return a;
 }
 
-Answer random_multistart(Graph g, int T_MAX, int stopping_criterion) {
+Answer random_multistart(Graph g, int T_MAX, int stopping_criterion, int v0) {
 
     int i = 0;
     Answer best;
     // ofstream outfile;
     // outfile.open("random-multistart.txt");
     
-    Answer a = _random_solution(g, T_MAX);
+    Answer a = _random_solution(g, T_MAX, v0);
     best.path = a.path;
     best.time_spent = a.time_spent;
     best.objective_ponctuation = a.objective_ponctuation;
 
     while(i < stopping_criterion) {
-        a = _random_solution(g, T_MAX);
+        a = _random_solution(g, T_MAX, v0);
 
         // outfile << a.objective_ponctuation << ',' << a.time_spent;
         // for(int j = 0; j < a.path.size(); j++)
@@ -223,4 +224,73 @@ Answer random_multistart(Graph g, int T_MAX, int stopping_criterion) {
     }
 
     return best;
+}
+
+// SEMI_GREEDY
+int _semi_greedy_choice(Graph g, int vertex, float alpha) {
+    int idx;
+    float min = -1, max = -1;
+    for(int i = 0; i < g.n_vertices; i++) {
+        // short distance with probability
+        if(min == -1 && max == -1 && g.v_edges[idx_m2v(g.n_vertices, vertex, i)] == 0) {
+            min = g.weights[vertex][i];
+            max = g.weights[vertex][i];
+        }
+        else if(g.weights[vertex][i] < min && g.v_vertices[i] == 0 && g.v_edges[idx_m2v(g.n_vertices, vertex, i)] == 0) {
+            min = g.weights[vertex][i];
+        }
+        else if(g.weights[vertex][i] > max && g.v_vertices[i] == 0 && g.v_edges[idx_m2v(g.n_vertices, vertex, i)] == 0) {
+            max = g.weights[vertex][i];
+        }
+    }
+
+    if(min == -1 || max == -1) {
+        cout << "DEU RUIM\n";
+        exit(1);
+    }
+
+    float c_min, c_max;
+    c_min = min;
+    c_max = c_min + alpha*max;
+    
+    vector<int> ci;
+    for(int i = 0; i < g.n_vertices; i++) {
+        if((g.weights[vertex][i] >= c_min || g.weights[vertex][i] <= c_max) && g.v_edges[idx_m2v(g.n_vertices, vertex, i)] == 0) {
+            ci.push_back(i);
+        }
+    }
+    if(ci.size() == 0) {
+        cout << "DEU RUIM\n";
+        exit(1);
+    }
+    return ci[(rand() % ci.size())];
+}
+
+Answer semi_greedy(Graph g, int T_MAX, float alpha, int v0) {
+
+    Answer a;
+
+    // int v0 = 17;
+    v0 = (v0 != -1) ? v0 : (rand() % g.n_vertices);
+    
+    g.v_vertices[v0] = 1;
+    a.path.push_back(v0);
+    a.time_spent = time_spent_function(g);
+    while(a.time_spent <= T_MAX) {
+        //cout << v0 << '\n';
+        int next_v = _semi_greedy_choice(g, alpha, v0);
+        
+        g.v_vertices[next_v] = 1;
+        
+        g.v_edges[idx_m2v(g.n_vertices, v0, next_v)] = 1;
+        g.v_edges[idx_m2v(g.n_vertices, next_v, v0)] = 1;
+        
+        a.path.push_back(next_v);
+        a.time_spent = time_spent_function(g);
+        v0 = next_v;
+    }
+
+    a.objective_ponctuation = objective_function(g);
+
+    return a;
 }

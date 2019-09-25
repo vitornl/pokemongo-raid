@@ -52,6 +52,7 @@ def main(API_KEY):
             f_time.write(line_time)
 
 if __name__ == "__main__":
+    
     with open('.api_key', 'r') as f:
         API_KEY = f.readline()
 
