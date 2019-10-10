@@ -98,6 +98,7 @@ Answer greedy(Graph g, int T_MAX, int v0) {
     }
 
     a.objective_ponctuation = objective_function(g);
+    a.final_graph = g;
 
     return a;
 }
@@ -160,6 +161,7 @@ Answer adaptive_greedy(Graph g, int T_MAX, int v0) {
     }
 
     a.objective_ponctuation = objective_function(g);
+    a.final_graph = g;
 
     return a;
 }
@@ -190,6 +192,7 @@ Answer _random_solution(Graph g, int T_MAX, int v0) {
         v0 = next_v;
     }
     a.objective_ponctuation = objective_function(g);
+    a.final_graph = g;
     
     return a;
 }
@@ -205,6 +208,7 @@ Answer random_multistart(Graph g, int T_MAX, int stopping_criterion, int v0) {
     best.path = a.path;
     best.time_spent = a.time_spent;
     best.objective_ponctuation = a.objective_ponctuation;
+    best.final_graph = a.final_graph;
 
     while(i < stopping_criterion) {
         a = _random_solution(g, T_MAX, v0);
@@ -218,11 +222,11 @@ Answer random_multistart(Graph g, int T_MAX, int stopping_criterion, int v0) {
             best.path = a.path;
             best.time_spent = a.time_spent;
             best.objective_ponctuation = a.objective_ponctuation;
+            best.final_graph = a.final_graph;
         }
 
         i++;
     }
-
     return best;
 }
 
@@ -291,6 +295,240 @@ Answer semi_greedy(Graph g, int T_MAX, float alpha, int v0) {
     }
 
     a.objective_ponctuation = objective_function(g);
+    a.final_graph = g;
 
     return a;
+}
+
+// LOCAL SEARCH
+Answer _fill_solution(Answer local_search_solution, int TMAX) {
+    Answer new_lss = local_search_solution;
+    while(new_lss.time_spent <= TMAX) {
+        int min_walk = 100000000;
+        int last_vertex = new_lss.path.back(), next_vertex = -1;
+        for(int i = 0; i < new_lss.final_graph.n_vertices; i++) {
+            if(find(new_lss.path.begin(), new_lss.path.end(), i) != new_lss.path.end()) continue;
+            if(new_lss.final_graph.weights[last_vertex][i] < min_walk) {
+                min_walk = new_lss.final_graph.weights[last_vertex][i];
+                next_vertex = i;
+            }
+        }
+        new_lss.final_graph.v_edges[idx_m2v(new_lss.final_graph.n_vertices, last_vertex, next_vertex)] = 1;
+        new_lss.final_graph.v_edges[idx_m2v(new_lss.final_graph.n_vertices, next_vertex, last_vertex)] = 1;
+        new_lss.final_graph.v_vertices[next_vertex] = 1;
+        new_lss.path.push_back(next_vertex);
+        new_lss.time_spent = time_spent_function(new_lss.final_graph);
+    }
+
+    return new_lss;
+}
+
+Answer first_improving_add_edges(Answer initial_solution) {
+    Answer a = initial_solution;
+
+    for(int vertex = 0; vertex < a.path.size()-1; vertex++) {
+        int v0 = vertex, v1 = vertex+1;
+        int improvement = 1;
+        while(improvement) {
+            improvement = 0;
+            int vo = a.path[v0], vd = a.path[v1];
+            Graph simulation_graph = a.final_graph;
+
+            float max_weight = simulation_graph.weights[vo][vd];
+
+            for(int i = 0; i < simulation_graph.n_vertices; i++) {
+                if(find(a.path.begin(), a.path.end(), i) != a.path.end()) continue;
+                float new_weights = simulation_graph.weights[vo][i] + simulation_graph.weights[i][vd];
+
+                if(new_weights <= max_weight) {
+                    // undo worst walk
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, vd)] = 0;
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vd, vo)] = 0;
+
+                    // new walk
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, i)] = 1;
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vo)] = 1;
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vd)] = 1;
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vd, i)] = 1;
+                    simulation_graph.v_vertices[i] = 1;
+                    
+                    a.path.insert(a.path.begin()+v1, i);
+                    
+                    a.time_spent = time_spent_function(simulation_graph);
+                    a.objective_ponctuation = objective_function(simulation_graph);
+                    a.final_graph = simulation_graph;
+                    improvement = 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    return a;
+}
+
+Answer first_improving_reducing_time(Answer initial_solution, int TMAX) {
+    Answer a = initial_solution;
+
+    for(int vertex = 0; vertex < a.path.size()-2; vertex++) {
+        int v0 = vertex, v1 = vertex+1, v2 = vertex+2;
+        int improvement = 1;
+        while(improvement) {
+            improvement = 0;
+            int vo = a.path[v0], vi = a.path[v1], vf = a.path[v2];
+            Graph simulation_graph = a.final_graph;
+            
+            simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, vi)] = 0;
+            simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vi, vo)] = 0;
+            simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vi, vf)] = 0;
+            simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vf, vi)] = 0;
+            simulation_graph.v_vertices[vi] = 0;
+            
+            for(int i = vertex; i < a.final_graph.n_vertices; i++) {
+                if(i == vo || i == vi || i == vf) continue;
+                
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, i)] = 1;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vo)] = 1;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vf)] = 1;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vf, i)] = 1;
+                simulation_graph.v_vertices[i] = 1;
+
+                if(objective_function(simulation_graph) > a.objective_ponctuation) {
+                //if(time_spent_function(simulation_graph) < a.time_spent) {
+                    a.path[v0] = vo;
+                    a.path[v1] = i;
+                    a.path[v2] = vf;
+                    a.time_spent = time_spent_function(simulation_graph);
+                    a.objective_ponctuation = objective_function(simulation_graph);
+                    a.final_graph = simulation_graph;
+                    improvement = 1;
+                    break;
+                }
+
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, i)] = 0;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vo)] = 0;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vf)] = 0;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vf, i)] = 0;
+                simulation_graph.v_vertices[i] = 0;
+            }
+        }
+    }
+
+    return _fill_solution(a, TMAX);
+}
+
+Answer best_improving_add_edges(Answer initial_solution) {
+    Answer a = initial_solution;
+
+    for(int vertex = 0; vertex < a.path.size()-1; vertex++) {
+        int v0 = vertex, v1 = vertex+1;
+        int improvement = 1;
+        while(improvement) {
+            improvement = 0;
+
+            Answer tmp_best;
+            tmp_best.objective_ponctuation = -1;
+            tmp_best.time_spent = 100000000;
+
+            int vo = a.path[v0], vd = a.path[v1];
+            Graph simulation_graph = a.final_graph;
+
+            float max_weight = simulation_graph.weights[vo][vd];
+
+            for(int i = 0; i < simulation_graph.n_vertices; i++) {
+                if(find(a.path.begin(), a.path.end(), i) != a.path.end()) continue;
+                float new_weights = simulation_graph.weights[vo][i] + simulation_graph.weights[i][vd];
+
+                if(new_weights <= max_weight) {
+                    // undo worst walk
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, vd)] = 0;
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vd, vo)] = 0;
+
+                    // new walk
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, i)] = 1;
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vo)] = 1;
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vd)] = 1;
+                    simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vd, i)] = 1;
+                    simulation_graph.v_vertices[i] = 1;
+                    
+                    tmp_best.path = a.path;
+                    tmp_best.path.insert(tmp_best.path.begin()+v1, i);
+                    
+                    tmp_best.time_spent = time_spent_function(simulation_graph);
+                    tmp_best.objective_ponctuation = objective_function(simulation_graph);
+                    tmp_best.final_graph = simulation_graph;
+                }
+            }
+
+            if(tmp_best.objective_ponctuation > a.objective_ponctuation) {
+                a.path = tmp_best.path;
+                a.time_spent = tmp_best.time_spent;
+                a.objective_ponctuation = tmp_best.objective_ponctuation;
+                a.final_graph = tmp_best.final_graph;
+                improvement = 1;
+            }
+        }
+    }
+
+    return a;
+}
+
+Answer best_improving_reducing_time(Answer initial_solution, int TMAX) {
+    Answer a = initial_solution;
+
+    for(int vertex = 0; vertex < a.path.size()-2; vertex++) {
+        int v0 = vertex, v1 = vertex+1, v2 = vertex+2;
+        int improvement = 1;
+        while(improvement) {
+            improvement = 0;
+            
+            Answer tmp_best;
+            tmp_best.objective_ponctuation = -1;
+            tmp_best.time_spent = 100000000;
+
+            int vo = a.path[v0], vi = a.path[v1], vf = a.path[v2];
+            Graph simulation_graph = a.final_graph;
+            
+            simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, vi)] = 0;
+            simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vi, vo)] = 0;
+            simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vi, vf)] = 0;
+            simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vf, vi)] = 0;
+            
+            for(int i = vertex; i < a.final_graph.n_vertices; i++) {
+                if(i == vo || i == vf) continue;
+                
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, i)] = 1;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vo)] = 1;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vf)] = 1;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vf, i)] = 1;
+
+                if(objective_function(simulation_graph) > tmp_best.objective_ponctuation) {
+                // if(time_spent_function(simulation_graph) < tmp_best.time_spent) {
+                    tmp_best.path = a.path;
+                    tmp_best.path[v0] = vo;
+                    tmp_best.path[v1] = i;
+                    tmp_best.path[v2] = vf;
+                    tmp_best.time_spent = time_spent_function(simulation_graph);
+                    tmp_best.objective_ponctuation = objective_function(simulation_graph);
+                    tmp_best.final_graph = simulation_graph;
+                }
+
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vo, i)] = 0;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vo)] = 0;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, i, vf)] = 0;
+                simulation_graph.v_edges[idx_m2v(simulation_graph.n_vertices, vf, i)] = 0;
+            }
+
+            if(tmp_best.objective_ponctuation > a.objective_ponctuation) {
+            // if(tmp_best.time_spent < a.time_spent) {
+                a.path = tmp_best.path;
+                a.time_spent = tmp_best.time_spent;
+                a.objective_ponctuation = tmp_best.objective_ponctuation;
+                a.final_graph = tmp_best.final_graph;
+                improvement = 1;
+            }
+        }
+    }
+
+    return _fill_solution(a, TMAX);
 }

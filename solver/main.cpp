@@ -37,11 +37,11 @@ int main(void) {
     double time_taken;
 
     int MAX_ITERATION = 100;
-    int MAX_TIME = 3600;
+    int MAX_TIME = 60;//3600
 
     srand(time(NULL));
-    //g = initialize_graph("data/vertices_icarai.lhp", "data/d_time_icarai.lhp");
-    g = initialize_graph("data/vertices_niteroi.lhp", "data/d_time_niteroi.lhp");
+    g = initialize_graph("data/vertices_icarai.lhp", "data/d_time_icarai.lhp");
+    //g = initialize_graph("data/vertices_niteroi.lhp", "data/d_time_niteroi.lhp");
 
     cout << "\n\t# Random Multistart #\n";
 
@@ -61,12 +61,12 @@ int main(void) {
     //     outfile.close();
     // }
 
-    micros = get_monotonic_time();
-    for(int i = 0; i < MAX_ITERATION; i++) {
-        a = random_multistart(g, MAX_TIME, 0, -1);
-    }
-    micros = get_monotonic_time() - micros;
-    cout << "Time: " << (double) micros / 1000000 << " micros" << '\n';
+    // micros = get_monotonic_time();
+    // for(int i = 0; i < MAX_ITERATION; i++) {
+    //     a = random_multistart(g, MAX_TIME, 0, -1);
+    // }
+    // micros = get_monotonic_time() - micros;
+    // cout << "Time: " << (double) micros / 1000000 << " micros" << '\n';
     
     cout << "\n\t# Greedy #\n";
     
@@ -85,12 +85,12 @@ int main(void) {
     //     outfile.close();
     // }
     
-    micros = get_monotonic_time();
-    for(int i = 0; i < MAX_ITERATION; i++) {
-        a = greedy(g, MAX_TIME, -1);
-    }
-    micros = get_monotonic_time() - micros;
-    cout << "Time: " << (double) micros / 1000000 << " micros" << '\n';
+    // micros = get_monotonic_time();
+    // for(int i = 0; i < MAX_ITERATION; i++) {
+    //     a = greedy(g, MAX_TIME, -1);
+    // }
+    // micros = get_monotonic_time() - micros;
+    // cout << "Time: " << (double) micros / 1000000 << " micros" << '\n';
 
     cout << "\n\t# Adaptive Greedy #\n";
     
@@ -109,12 +109,12 @@ int main(void) {
     // outfile.close();
     // }
 
-    micros = get_monotonic_time();
-    for(int i = 0; i < MAX_ITERATION; i++) {
-        a = adaptive_greedy(g, MAX_TIME, -1);
-    }
-    micros = get_monotonic_time() - micros;
-    cout << "Time: " << (double) micros / 1000000 << " micros" << '\n';
+    // micros = get_monotonic_time();
+    // for(int i = 0; i < MAX_ITERATION; i++) {
+    //     a = adaptive_greedy(g, MAX_TIME, -1);
+    // }
+    // micros = get_monotonic_time() - micros;
+    // cout << "Time: " << (double) micros / 1000000 << " micros" << '\n';
 
     cout << "\n\t# Semi-Greedy #\n";
 
@@ -137,12 +137,61 @@ int main(void) {
     //     }
     // }
 
-    micros = get_monotonic_time();
-    for(int i = 0; i < MAX_ITERATION; i++) {
-        a = semi_greedy(g, MAX_TIME, 0.5, -1);
+    // micros = get_monotonic_time();
+    // for(int i = 0; i < MAX_ITERATION; i++) {
+    //     a = semi_greedy(g, MAX_TIME, 0.5, -1);
+    // }
+    // micros = get_monotonic_time() - micros;
+    // cout << "Time: " << (double) micros / 1000000 << " micros" << '\n';
+
+    float p_r = 0;
+    float p_e = 0;
+    float p_t = 0;
+    float m_r = 0;
+    float m_e = 0;
+    float m_t = 0;
+    float t_e = 0;
+    float t_t = 0;
+
+    for(int i = 0; i < 500; i++) {
+        int v0 = 0;
+        //a = random_multistart(g, MAX_TIME, 0, v0);
+        //a = greedy(g, MAX_TIME, v0);
+        //a = adaptive_greedy(g, MAX_TIME, v0);
+        a = semi_greedy(g, MAX_TIME, 0.75, v0);
+        p_r += a.path.size();
+        m_r = a.path.size() > m_r ? a.path.size() : m_r;
+
+        // print_answer(g, a);
+        // cout << "---\n";
+        micros = get_monotonic_time();
+        Answer a1 = best_improving_add_edges(a);
+        p_e += a1.path.size();
+        m_e = a1.path.size() > m_e ? a1.path.size() : m_e;
+        t_e += get_monotonic_time() - micros;
+
+        // print_answer(g, a1);
+        // cout << "---\n";
+        micros = get_monotonic_time();
+        a1 = best_improving_reducing_time(a, MAX_TIME);
+        p_t += a1.path.size();
+        m_t = a1.path.size() > m_t ? a1.path.size() : m_t;
+        t_t += get_monotonic_time() - micros;
+        // print_answer(g, a1);
+        // cout << "---\n";
+        // a1 = best_improving(a, MAX_TIME);
+        // print_answer(g, a1);
     }
-    micros = get_monotonic_time() - micros;
-    cout << "Time: " << (double) micros / 1000000 << " micros" << '\n';
+    cout << p_r/500 << '\n';
+    cout << p_e/500 << '\n';
+    cout << p_t/500 << '\n';
+    cout << "---\n";
+    cout << m_r << '\n';
+    cout << m_e << '\n';
+    cout << m_t << '\n';
+    cout << "---\n";
+    cout << t_e/500 << '\n';
+    cout << t_t/500 << '\n';
 
     return 0;
 }
