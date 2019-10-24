@@ -1,0 +1,9 @@
+		set xlabel 'exponential quantiles'
+		set size ratio 1
+		set ylabel 'measured times'
+		set key right bottom
+		set title 'data/grasp/grasp-0.75'
+		set terminal postscript color 'Helvetica' 
+		set output 'data/grasp/grasp-0.75-qq.ps'
+		plot "data/grasp/grasp-0.75-el.dat" t "empirical" w points, "data/grasp/grasp-0.75-tl.dat" t "estimated" w lines lt 3, "data/grasp/grasp-0.75-ul.dat" t "+1 std dev range" w lines lt 4, "data/grasp/grasp-0.75-ll.dat" t "-1 std dev range" w lines lt 4 
+		quit
