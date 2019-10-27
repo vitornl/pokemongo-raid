@@ -11,7 +11,7 @@ float objective_function(Graph g);
 
 float time_spent_function(Graph g);
 
-void print_answer(Graph g, Answer a);
+void print_answer(Graph g, Answer a, bool SHORT);
 
 Answer greedy(Graph g, int T_MAX, int v0);
 

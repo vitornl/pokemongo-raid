@@ -43,11 +43,18 @@ float time_spent_function(Graph g) {
 
 }
 
-void print_answer(Graph g, Answer a) {
+void print_answer(Graph g, Answer a, bool SHORT) {
+    if(SHORT) {
+        cout << "### PATH SIZE:" << a.path.size() << '\n';
+        cout << "### SPENT TIME:" << a.time_spent << '\n';
+        return;
+    }
+    
     cout << "### PATH:\n";
     for(int i = 0; i < a.path.size(); i++) {
         cout << a.path[i] << ' ' << g.vertices[a.path[i]] << '\n';
     }
+    cout << "### PATH SIZE:" << a.path.size() << '\n';
     cout << "### SPENT TIME:" << a.time_spent << '\n';
     cout << "### OBJECTIVE PONCTUATION:" << a.objective_ponctuation << '\n';
 }

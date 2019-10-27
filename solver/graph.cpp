@@ -7,7 +7,7 @@
 
 using namespace std;
 
-Graph initialize_graph(string vertices_file, string distances_file) {
+Graph initialize_graph(string name, string vertices_file, string distances_file) {
 
     Graph g;
     ifstream fvertices (vertices_file);
@@ -15,6 +15,8 @@ Graph initialize_graph(string vertices_file, string distances_file) {
     string line;
 
     char delimiter = ' ';
+    
+    g.name = name;
     
     // vertices file
     if (fvertices.is_open()) {
