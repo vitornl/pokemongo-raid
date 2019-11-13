@@ -1,0 +1,12 @@
+		set terminal postscript enhanced
+		set xlabel 'time to target solution ({/Symbol m}s)'
+		set size ratio 1
+		set ylabel 'cumulative probability'
+                set yrange [0:1]
+		set key right bottom
+                set grid
+		set title 'data/grasp_pr/grasp_pr-bw-13-best'
+		set terminal postscript color 'Helvetica'
+		set output 'data/grasp_pr/grasp_pr-bw-13-best-exp.ps'
+		plot "data/grasp_pr/grasp_pr-bw-13-best-ee.dat" t "empirical" w points, "data/grasp_pr/grasp_pr-bw-13-best-te.dat" t "theoretical" w lines lt 3
+		quit

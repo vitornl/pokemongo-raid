@@ -1,0 +1,9 @@
+		set xlabel 'exponential quantiles'
+		set size ratio 1
+		set ylabel 'measured times'
+		set key right bottom
+		set title 'data/grasp_pr/grasp_pr-fw-13-best'
+		set terminal postscript color 'Helvetica' 
+		set output 'data/grasp_pr/grasp_pr-fw-13-best-qq.ps'
+		plot "data/grasp_pr/grasp_pr-fw-13-best-el.dat" t "empirical" w points, "data/grasp_pr/grasp_pr-fw-13-best-tl.dat" t "estimated" w lines lt 3, "data/grasp_pr/grasp_pr-fw-13-best-ul.dat" t "+1 std dev range" w lines lt 4, "data/grasp_pr/grasp_pr-fw-13-best-ll.dat" t "-1 std dev range" w lines lt 4 
+		quit
