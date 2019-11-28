@@ -1,0 +1,9 @@
+		set xlabel 'exponential quantiles'
+		set size ratio 1
+		set ylabel 'measured times'
+		set key right bottom
+		set title 'ga'
+		set terminal postscript color 'Helvetica' 
+		set output 'ga-qq.ps'
+		plot "ga-el.dat" t "empirical" w points, "ga-tl.dat" t "estimated" w lines lt 3, "ga-ul.dat" t "+1 std dev range" w lines lt 4, "ga-ll.dat" t "-1 std dev range" w lines lt 4 
+		quit

@@ -1,10 +1,12 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include "heuristics.h"
 #include <mach/mach_time.h>
 #include <chrono>
+#include <algorithm>
 
 #include "stdio.h"
 #include "stdlib.h"
@@ -355,32 +357,32 @@ Answer _grasp_pr(Graph g, int MAX_TIME, int MAX_ITERATIONS, bool to_file, int in
         // a = greedy(g, MAX_TIME, v0);
         // a = adaptive_greedy(g, MAX_TIME, v0);
         
-        micros = get_monotonic_time();
-        do {
-            a = semi_greedy(g, MAX_TIME, alpha, initial_vertex);
-            a = best_improving_reducing_time(a, MAX_TIME);
-            if(elites.size() > 0) {
-                Answer sline = elites[rand()%elites.size()];
-                a = _backward_pr(a, sline);
-            }
-            elites = _update_eliteset(a, elites, ELITES_MAX);
-            ttime = get_monotonic_time() - micros;
-        } while(a.path.size() < target && ttime < 10000000);
-        cout << i << '|' << a.path.size() << '|' << ttime << '\n';
-        outfile << i << ',' << a.path.size() << ',' << ttime << '\n';
-
         // micros = get_monotonic_time();
-        
-        // a = semi_greedy(g, MAX_TIME, alpha, initial_vertex);
-        // a = best_improving_reducing_time(a, MAX_TIME);
-        
-        // if(elites.size() > 0) {
-        //     Answer sline = elites[rand()%elites.size()];
-        //     //a = _foward_pr(a, sline);
-        // }
-        // elites = _update_eliteset(a, elites, ELITES_MAX);
+        // do {
+        //     a = semi_greedy(g, MAX_TIME, alpha, initial_vertex);
+        //     a = best_improving_reducing_time(a, MAX_TIME);
+        //     if(elites.size() > 0) {
+        //         Answer sline = elites[rand()%elites.size()];
+        //         a = _backward_pr(a, sline);
+        //     }
+        //     elites = _update_eliteset(a, elites, ELITES_MAX);
+        //     ttime = get_monotonic_time() - micros;
+        // } while(a.path.size() < target && ttime < 10000000);
+        // cout << i << '|' << a.path.size() << '|' << ttime << '\n';
+        // outfile << i << ',' << a.path.size() << ',' << ttime << '\n';
 
-        // ttime += get_monotonic_time() - micros;
+        micros = get_monotonic_time();
+        
+        a = semi_greedy(g, MAX_TIME, alpha, initial_vertex);
+        a = best_improving_reducing_time(a, MAX_TIME);
+        
+        if(elites.size() > 0) {
+            Answer sline = elites[rand()%elites.size()];
+            a = _foward_pr(a, sline);
+        }
+        elites = _update_eliteset(a, elites, ELITES_MAX);
+
+        ttime += get_monotonic_time() - micros;
 
 
     }
@@ -408,51 +410,195 @@ Answer _grasp_pr(Graph g, int MAX_TIME, int MAX_ITERATIONS, bool to_file, int in
     return best;
 }
 
+Answer _mutate(Answer c, float mutation_factor) {
+    srand(c.path[0]);
+    bool TrueFalse = (rand() % 100) < mutation_factor*100;
+    if(TrueFalse)
+        c.path[rand()%(c.path.size()-1)] = rand()%(c.final_graph.n_vertices-1);
+
+    return c;
+}
+
+bool _is_chromosome_feasable(Graph g, Answer c, int MAX_TIME) {
+    float sum = 0;
+    for(int i = 0; i < c.path.size()-1; i++) {
+        int v0 = c.path[i];
+        int v1 = c.path[i+1];
+        if(v0 == -1 || v1 == -1)
+            continue;
+        sum += 1 * g.weights[v0][v1];
+    }
+
+    if(sum <= MAX_TIME)
+        return true;
+    return false;
+}
+
+Answer _fix_chromosome(Graph g, Answer c, int MAX_TIME) {
+    int last = c.path.size()-1;
+    while(_is_chromosome_feasable(g, c, MAX_TIME) == false && last > 0) {
+        c.path[last] = -1;
+        last--;
+    }
+
+    return c;
+}
+
+Answer _best_individual(vector<Answer> population) {
+    Answer best = population[0];
+    for(int i = 0; i < population.size(); i++) {
+        Answer a = population[i];
+        if(best.path.size() < a.path.size()) best = a;
+        else if(best.path.size() == a.path.size() && a.time_spent < best.time_spent) best = a;
+    }
+
+    return best;
+}
+
+bool _sort_cmp(const Answer& lhs, const Answer& rhs) {
+   if(lhs.path.size() < rhs.path.size()) return true;
+    else if(lhs.path.size() == rhs.path.size() && lhs.time_spent < rhs.time_spent) return true;
+    return false;
+}
+
+vector<Answer> _elite_set(vector<Answer> cur_pop, vector<Answer> new_pop) {
+    for(int i = 0; i < new_pop.size(); i++)
+        cur_pop.push_back(new_pop[i]);
+
+    sort(cur_pop.begin(), cur_pop.end(), _sort_cmp);
+
+    vector<Answer> elites;
+    for(int i = cur_pop.size()-1; i > int(cur_pop.size()/2); i--)
+        elites.push_back(cur_pop[i]);
+    
+    return elites;
+}
+
+vector<Answer> _pmx_crossover(Answer c1, Answer c2) {
+    vector<Answer> new_born;
+    Answer s1, s2;
+    for(int i=0; i < int(c1.path.size()/2)-1; i++) {
+        s1.path.push_back(c1.path[i]);
+        s2.path.push_back(c1.path[int(c1.path.size()/2)+i]);
+    }
+    for(int i=0; i < int(c2.path.size()/2)-1; i++) {
+        s1.path.push_back(c2.path[i]);
+        s2.path.push_back(c2.path[int(c2.path.size()/2)+i]);
+    }
+
+    new_born.push_back(s1);
+    new_born.push_back(s2);
+    return new_born;
+}
+
+Answer _ga(Graph g, int MAX_TIME, int MAX_ITERATIONS, bool to_file, int population_size, float mutation_factor) {
+    cout << "\n\t# GA (" << g.name << ',' << to_string(MAX_TIME)
+         << ',' << to_string(MAX_ITERATIONS) << ',' << to_string(population_size)
+         << ',' << to_string(mutation_factor) << ")#\n";
+    
+    ofstream outfile;
+    int64_t micros, ttime=0;
+
+    if(to_file) {
+        outfile.open("output/ga.txt");
+        outfile << MAX_TIME << ',' << population_size << ',' << mutation_factor << ',' << MAX_ITERATIONS << '\n';
+    }
+
+    micros = get_monotonic_time();
+
+    vector<Answer> population;
+    for(int i = 0; i < population_size; i++) {
+        srand(i);
+        population.push_back(semi_greedy(g, MAX_TIME, 0.75, 3));
+    }
+
+    int generations = 1;
+    while(generations < MAX_ITERATIONS) {
+        generations++;
+        vector<Answer> new_population;
+        for(int i = 0; i < population_size/2; i+=2) {
+            vector<Answer> new_born = _pmx_crossover(population[i], population[i+1]);
+            // new_born[0] = _fix_chromosome(g, _mutate(new_born[0], mutation_factor), MAX_TIME);
+            // new_born[1] = _fix_chromosome(g, _mutate(new_born[1], mutation_factor), MAX_TIME);
+            new_population.push_back(new_born[0]);
+            new_population.push_back(new_born[1]);
+        }
+        population = _elite_set(population, new_population);
+    }
+
+    Answer a = _best_individual(population);
+    
+    ttime += get_monotonic_time() - micros;
+
+    if(to_file) {
+        outfile << a.objective_ponctuation << ',' << a.time_spent << ',';
+        for(int j = 0; j < a.path.size(); j++)
+            outfile << ',' << a.path[j];
+        outfile << '\n';
+    }
+
+    cout << "Time: " << (double) ttime/MAX_ITERATIONS << " micros" << '\n';
+
+    return a;
+}
+
 int main(void) {
     Graph g;
     Answer a;
     ofstream outfile;
     int64_t micros;
     double time_taken;
-
+    int MAX_TIME = 60;
     int MAX_ITERATIONS = 500;
-    int MAX_TIME = 60;//3600
     int INITIAL_VERTEX = 0;
     int ELITES_MAX = 10;
     
     srand(1);
 
-    g = initialize_graph("icarai", "data/vertices_icarai.lhp", "data/d_time_icarai.lhp");
-    //g = initialize_graph("niteroi", "data/vertices_niteroi.lhp", "data/d_time_niteroi.lhp");
+    // int LOCATION = 0;
+    int LOCATION = 1;
+
+    if(LOCATION == 0) {
+        MAX_TIME = 3600;
+        g = initialize_graph("niteroi", "data/vertices_niteroi.lhp", "data/d_time_niteroi.lhp");
+    } else {
+        MAX_TIME = 60;
+        g = initialize_graph("icarai", "data/vertices_icarai.lhp", "data/d_time_icarai.lhp");
+    }
     
-    int i = 3; { //for(int i = 0; i < g.n_vertices; i++) {
+    for(int i = 0; i < g.n_vertices; i++) {
         INITIAL_VERTEX = i;
-        // a = _random_multistart(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX);
-        // print_answer(g, a, true);
+        a = _random_multistart(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX);
+        print_answer(g, a, true);
 
-        // Answer ak = _greedy(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX);
-        // print_answer(g, ak, true);
+        Answer ak = _greedy(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX);
+        print_answer(g, ak, true);
         
-        // a = _adaptative_greedy(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX);
-        // print_answer(g, a, true);
+        a = _adaptative_greedy(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX);
+        print_answer(g, a, true);
         
-        // for(int k = 0; k < 3; k++) {
-        //     float alpha = 0.25 * (k+1);
-        //     a = _semi_greedy(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX, alpha);
-        //     print_answer(g, a, true);
-        // }
+        for(int k = 0; k < 3; k++) {
+            float alpha = 0.25 * (k+1);
+            a = _semi_greedy(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX, alpha);
+            print_answer(g, a, true);
+        }
 
-        // Answer a1 = _local_search(g, MAX_TIME, MAX_ITERATIONS, false, ak, 'f', 'e');
-        // print_answer(g, a1, true);
-        // a1 = _local_search(g, MAX_TIME, MAX_ITERATIONS, false, ak, 'f', 't');
-        // print_answer(g, a1, true);
-        // a1 = _local_search(g, MAX_TIME, MAX_ITERATIONS, false, ak, 'b', 'e');
-        // print_answer(g, a1, true);
-        // a1 = _local_search(g, MAX_TIME, MAX_ITERATIONS, false, ak, 'b', 't');
-        // print_answer(g, a1, true);
+        Answer a1 = _local_search(g, MAX_TIME, MAX_ITERATIONS, false, ak, 'f', 'e');
+        print_answer(g, a1, true);
+        a1 = _local_search(g, MAX_TIME, MAX_ITERATIONS, false, ak, 'f', 't');
+        print_answer(g, a1, true);
+        a1 = _local_search(g, MAX_TIME, MAX_ITERATIONS, false, ak, 'b', 'e');
+        print_answer(g, a1, true);
+        a1 = _local_search(g, MAX_TIME, MAX_ITERATIONS, false, ak, 'b', 't');
+        print_answer(g, a1, true);
         
-        // Answer a1 = _grasp(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX, -1, 0.75);
-        Answer a1 = _grasp_pr(g, MAX_TIME, MAX_ITERATIONS, true, INITIAL_VERTEX, 13, 0.75, ELITES_MAX);
+        a1 = _grasp(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX, -1, 0.75);
+        print_answer(g, a1, true);
+        
+        a1 = _grasp_pr(g, MAX_TIME, MAX_ITERATIONS, false, INITIAL_VERTEX, 13, 0.75, ELITES_MAX);
+        print_answer(g, a1, true);
+
+        a1 = _ga(g, MAX_TIME, MAX_ITERATIONS, false, 200, 0.01);
         print_answer(g, a1, true);
     }
 
